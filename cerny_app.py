@@ -76,10 +76,10 @@ with col1:
     pesos_con_cash = np.append(weights, cash_weight)
     
     weights_df = pd.DataFrame({'Activo': activos_con_cash, 'Peso': pesos_con_cash})
-    st.dataframe(weights_df.style.format({"Peso": "{:.2%}"}))
+    st.dataframe(weights_df.style.format({"Peso": "{:.8%}"}))
     
-    st.metric("Inversión en Riesgo", f"{sum_risky:.2%}")
-    st.metric("Inversión en Cash", f"{cash_weight:.2%}")
+    st.metric("Inversión en Riesgo", f"{sum_risky:.8%}")
+    st.metric("Inversión en Cash", f"{cash_weight:.8%}")
 
 with col2:
     st.write("### 📊 Pesos Relativos (π_hoy)")
@@ -91,12 +91,12 @@ with col2:
         'Activo': activos_con_cash, 
         'Peso Hoy': np.append(pi_hoy, cash_hoy)
     })
-    st.dataframe(pi_hoy_df.style.format({"Peso Hoy": "{:.2%}"}))
+    st.dataframe(pi_hoy_df.style.format({"Peso Hoy": "{:.8%}"}))
     st.metric("Suma Total (Alpha)", f"{(pi_hoy.sum() + cash_hoy):.0%}")
 
 with col3:
     st.write("### 🎯 Función de Utilidad")
-    st.metric("Utilidad Máxima", f"{utilidad:.6f}")
-    st.info(f"El modelo sugiere dejar un **{cash_weight:.2%}** en efectivo para optimizar el riesgo.")
+    st.metric("Utilidad Máxima", f"{utilidad:.8f}")
+    st.info(f"El modelo sugiere dejar un **{cash_weight:.8%}** en efectivo para optimizar el riesgo.")
 
 st.success("✅ Modelo actualizado. El efectivo (Cash) se calcula automáticamente restando la inversión en riesgo de Alpha.")
