@@ -5,13 +5,14 @@ import cvxpy as cp
 
 st.set_page_config(page_title="Modelo Černý - 8 Activos", layout="wide")
 
-st.title("🚀 Modelo de Černý (2019) con Matriz de Correlación")
+st.title(" Modelo de Černý (2019) con Matriz de Correlación")
 st.markdown("""
-Este modelo calcula la **Matriz de Covarianza** automáticamente y determina cuánto invertir en activos con riesgo y cuánto mantener en **Cash**.
+Este modelo calcula la **Matriz de Covarianza** automáticamente combinando las volatilidades 
+de la barra lateral con la matriz de correlación histórica.
 """)
 
 # --- SIDEBAR: PARÁMETROS ---
-st.sidebar.header("⚙️ Configuración Global")
+st.sidebar.header(" Configuración Global")
 rf = st.sidebar.number_input("Tasa Libre de Riesgo (rf)", value=0.01, format="%.4f", step=0.001)
 gamma_val = st.sidebar.slider("Gamma (Aversión al Riesgo)", 0.1, 30.0, 15.0, 0.1)
 alpha = st.sidebar.slider("Alpha (Proporción Máxima)", 0.0, 1.0, 1.0, 0.01)
@@ -19,7 +20,7 @@ alpha = st.sidebar.slider("Alpha (Proporción Máxima)", 0.0, 1.0, 1.0, 0.01)
 activos = ['AAPL', 'IAU', 'MBB', 'SLV', 'SPY', 'UNG', 'VCIT', 'WMT']
 
 # --- SIDEBAR: RETORNOS ---
-st.sidebar.subheader("📈 Retornos Esperados")
+st.sidebar.subheader(" Retornos Esperados")
 mu_vals = {
     'AAPL': 0.2513, 'IAU': 0.0932, 'MBB': 0.0197, 'SLV': 0.1025,
     'SPY': 0.1389, 'UNG': -0.1289, 'VCIT': 0.0408, 'WMT': 0.1668
@@ -28,7 +29,7 @@ mu_input = [st.sidebar.number_input(f"Retorno {a}", value=mu_vals[a], format="%.
 mu = np.array(mu_input)
 
 # --- SIDEBAR: VOLATILIDADES ---
-st.sidebar.subheader("📉 Volatilidades")
+st.sidebar.subheader(" Volatilidades")
 sigma_vals = {
     'AAPL': 0.2670, 'IAU': 0.1611, 'MBB': 0.0439, 'SLV': 0.3118,
     'SPY': 0.1404, 'UNG': 0.4861, 'VCIT': 0.0611, 'WMT': 0.1789
@@ -36,7 +37,7 @@ sigma_vals = {
 sigma_input = [st.sidebar.number_input(f"Volatilidad {a}", value=sigma_vals[a], format="%.4f") for a in activos]
 sigma = np.array(sigma_input)
 
-# --- MATRIZ DE CORRELACIÓN ---
+# --- MATRIZ DE CORRELACIÓN (Programada) ---
 corr_matrix = np.array([
     [1, 0.120146116, 0.251909112, 0.225280126, 0.594099, 0.036377312, 0.394173541, 0.249878949],
     [0.120146116, 1, 0.280243412, 0.771645042, 0.098369012, -0.053217378, 0.374305838, 0.110369145],
@@ -48,7 +49,8 @@ corr_matrix = np.array([
     [0.249878949, 0.110369145, 0.125847523, 0.079684812, 0.377308192, 0.179822569, 0.170894586, 1]
 ])
 
-# --- CÁLCULO DE COVARIANZA ---
+# --- CÁLCULO AUTOMÁTICO DE COVARIANZA (Sigma) ---
+# Sigma_ij = sigma_i * sigma_j * correlation_ij
 D = np.diag(sigma)
 Sigma = D @ corr_matrix @ D
 
@@ -62,41 +64,33 @@ problem.solve()
 
 # Resultados
 weights = pi_risky.value
-sum_risky = weights.sum()
-cash_weight = alpha - sum_risky  # Lo que sobra se va a Cash
+sum_weights = weights.sum()
 utilidad = excess_risky @ weights - (gamma_val / 2) * (weights.T @ Sigma @ weights)
 
 # --- VISUALIZACIÓN ---
 col1, col2, col3 = st.columns([3, 3, 2])
 
 with col1:
-    st.write("### ⚖️ Pesos Óptimos (π_risky)")
-    # Crear DataFrame incluyendo Cash
-    activos_con_cash = activos + ['CASH (Libre de Riesgo)']
-    pesos_con_cash = np.append(weights, cash_weight)
-    
-    weights_df = pd.DataFrame({'Activo': activos_con_cash, 'Peso': pesos_con_cash})
-    st.dataframe(weights_df.style.format({"Peso": "{:.8%}"}))
-    
-    st.metric("Inversión en Riesgo", f"{sum_risky:.8%}")
-    st.metric("Inversión en Cash", f"{cash_weight:.8%}")
+    st.write("###  Pesos Óptimos (π_risky)")
+    weights_df = pd.DataFrame({'Activo': activos, 'Peso': weights})
+    st.dataframe(weights_df.style.format({"Peso": "{:.2%}"}))
+    st.metric("Inversión Total", f"{sum_weights:.2%}", delta=f"Límite α: {alpha:.0%}")
 
 with col2:
-    st.write("### 📊 Pesos Relativos (π_hoy)")
-    # Normalizar pesos respecto a alpha
+    st.write("###  Pesos Relativos (π_hoy)")
     pi_hoy = weights / alpha if alpha > 0 else np.zeros_like(weights)
-    cash_hoy = cash_weight / alpha if alpha > 0 else 0
-    
-    pi_hoy_df = pd.DataFrame({
-        'Activo': activos_con_cash, 
-        'Peso Hoy': np.append(pi_hoy, cash_hoy)
-    })
-    st.dataframe(pi_hoy_df.style.format({"Peso Hoy": "{:.8%}"}))
-    st.metric("Suma Total (Alpha)", f"{(pi_hoy.sum() + cash_hoy):.0%}")
+    pi_hoy_df = pd.DataFrame({'Activo': activos, 'Peso Hoy': pi_hoy})
+    st.dataframe(pi_hoy_df.style.format({"Peso Hoy": "{:.2%}"}))
+    st.metric("Suma π_hoy", f"{pi_hoy.sum():.2%}")
 
 with col3:
-    st.write("### 🎯 Función de Utilidad")
-    st.metric("Utilidad Máxima", f"{utilidad:.8f}")
-    st.info(f"El modelo sugiere dejar un **{cash_weight:.8%}** en efectivo para optimizar el riesgo.")
+    st.write("###  Función de Utilidad")
+    st.metric("Utilidad Máxima", f"{utilidad:.6f}")
 
-st.success("✅ Modelo actualizado. El efectivo (Cash) se calcula automáticamente restando la inversión en riesgo de Alpha.")
+# Mostrar la matriz de covarianza generada para comparar con Excel
+with st.expander("Ver Matriz de Covarianza Generada (Sigma)"):
+    sigma_df = pd.DataFrame(Sigma, index=activos, columns=activos)
+    st.write("Esta matriz se calcula como: Diag(Vol) * Correlación * Diag(Vol)")
+    st.dataframe(sigma_df.style.format("{:.6f}"))
+
+st.success(" Matriz de covarianza sincronizada con las correlaciones de Excel.")
